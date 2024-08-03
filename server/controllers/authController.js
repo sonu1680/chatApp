@@ -1,0 +1,78 @@
+import userModel from "../models/userModel.js";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
+const createToken = (email, userId) => {
+  return jwt.sign(
+    {
+      email,
+      userId,
+    },
+    process.env.JWT_KEY,
+    { expiresIn: "3d" }
+  );
+};
+
+const signup = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res
+        .status(402)
+        .json({ message: "Enter Email and Password Properly", success: false });
+    }
+    const user = await userModel.findOne({ email });
+    if (user) {
+      return res
+        .status(203)
+        .json({ message: "User already registered", success: false });
+    }
+    const newUser = await userModel.create({ email, password });
+
+    res.cookie("jwt", createToken(email, newUser.id), {
+      secure: true,
+      sameSite: "None",
+    });
+
+    res.status(201).json({
+      message: "User created",
+      user: {
+        id: newUser._id,
+        email: newUser.email,
+        profileSetup: newUser.profileSetup,
+      },
+      success: true,
+    });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Internal Error during Validation", success: false });
+  }
+};
+
+const login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const user = await userModel.findOne({ email });
+    if (!user) {
+      return res
+        .status(401)
+        .json({ message: "user is not register", success: false });
+    }
+    const isPassEqul = await bcrypt.compare(password, user.password);
+    if (!isPassEqul) {
+      return res
+        .status(401)
+        .json({ message: "Invalid Credentials", success: false });
+    }
+    const jwtToken = createToken(email, user.id);
+    res
+      .status(200)
+      .json({ message: "Login Success", jwtToken: jwtToken, success: true });
+  } catch (error) {
+    return res
+      .status(401)
+      .json({ message: "Internal server Error", success: false });
+  }
+};
+
+export { signup, login };
