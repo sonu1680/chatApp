@@ -1,6 +1,7 @@
 import userModel from "../models/userModel.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+
 const createToken = (email, userId) => {
   return jwt.sign(
     {
@@ -28,7 +29,7 @@ const signup = async (req, res) => {
     }
     const newUser = await userModel.create({ email, password });
 
-    res.cookie("jwt", createToken(email, newUser.id), {
+    res.cookie("jwt", createToken(email, newUser._id), {
       secure: true,
       sameSite: "None",
     });
@@ -56,23 +57,59 @@ const login = async (req, res) => {
     if (!user) {
       return res
         .status(401)
-        .json({ message: "user is not register", success: false });
+        .json({ message: "User is not registered", success: false });
     }
-    const isPassEqul = await bcrypt.compare(password, user.password);
-    if (!isPassEqul) {
+    const isPassEqual = await bcrypt.compare(password, user.password);
+    if (!isPassEqual) {
       return res
         .status(401)
         .json({ message: "Invalid Credentials", success: false });
     }
-    const jwtToken = createToken(email, user.id);
-    res
-      .status(200)
-      .json({ message: "Login Success", jwtToken: jwtToken, success: true });
+    const jwtToken = createToken(email, user._id);
+    res.status(200).json({
+      message: "Login Success",
+      user: {
+        id: user._id,
+        email: user.email,
+        profileSetup: user.profileSetup,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        image: user.image,
+        color: user.color,
+        token: jwtToken,
+      },
+      success: true,
+    });
   } catch (error) {
     return res
       .status(401)
-      .json({ message: "Internal server Error", success: false });
+      .json({ message: "Internal server error", success: false });
   }
 };
 
-export { signup, login };
+const getUserInfo = async (req, res) => {
+  try {
+    const userData = await userModel.findById(req.userId);
+    console.log(userData);
+    if (!userData)
+      return res.status(403).json({ message: "No user found", success: false });
+
+    return res.status(200).json({
+     
+        id: userData._id,
+        email: userData.email,
+        profileSetup: userData.profileSetup,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        image: userData.image,
+        color: userData.color,
+     
+    });
+  } catch (error) {
+    return res
+      .status(401)
+      .json({ message: "Internal server error", success: false });
+  }
+};
+
+export { signup, login, getUserInfo };
