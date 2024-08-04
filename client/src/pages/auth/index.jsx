@@ -50,6 +50,7 @@ const { setUserInfo } = useAppStore();
       console.log({res});
       if(res.data.user.id){
         setUserInfo(res.data.user);
+        
         if(res.data.user.profileSetup){
           navigate('/chat')
         }

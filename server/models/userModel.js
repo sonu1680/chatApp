@@ -12,7 +12,7 @@ const userSchema = schema({
     type: String,
     required: true,
   },
-  firsrName: {
+  firstName: {
     type: String,
     required: false,
   },

@@ -1,5 +1,5 @@
 import { useAppStore } from "@/store";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { IoArrowBack } from "react-icons/io5";
 import { Avatar, AvatarImage } from "@/components/ui/avatar";
@@ -7,22 +7,84 @@ import { colors, getColor } from "@/lib/utils";
 import { FaTrash, FaPlus } from "react-icons/fa";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import apiClient from "@/lib/apiClient";
+import { UPDATE_USER_PROFILE } from "@/utils/constant";
+
 const Profile = () => {
   const navigate = useNavigate();
-  const { userInfo, setuserInfo } = useAppStore();
+  const { userInfo, setUserInfo } = useAppStore();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [image, setImage] = useState(null);
   const [hovered, setHovered] = useState(false);
   const [selectedColor, setSelectedColor] = useState(0);
 
-  const saveChanges = async () => {};
+useEffect(() => {
+  if (userInfo.profileSetup) {
+    setFirstName(userInfo.firstName);
+    setLastName(userInfo.lastName);
+    setSelectedColor(userInfo.color);
+  }
+}, [userInfo]);
+
+  const updateValidation = () => {
+    if (!firstName.length) {
+      toast.error("First name is required");
+      return false;
+    }
+    if (!lastName.length) {
+      toast.error("Last name is required");
+      return false;
+    }
+    return true;
+  };
+
+const handleNavigate=async()=>{
+  if(userInfo.profileSetup){
+    navigate('/chat');
+  }
+  else toast.error('Please setup user profile first.');
+}
+
+  const saveChanges = async () => {
+    if (updateValidation()) {
+      try {
+     
+        const res = await apiClient.post(
+          UPDATE_USER_PROFILE,
+          { firstName, lastName,color:selectedColor },
+          { withCredentials: true }
+        );
+        if (res.status === 200 && res.data ) {
+          setUserInfo({ ...res.data} );
+          toast.success("Profile updated successfully");
+          navigate('/chat');
+        } else {
+          toast.error("Failed to update profile");
+        }
+      } catch (error) {
+        toast.error("Error updating profile");
+      }
+    }
+  };
+
+  const handleImageUpload = () => {
+    // Handle image upload functionality here
+  };
+
+  const handleImageRemove = () => {
+    setImage(null);
+  };
 
   return (
     <div className="bg-[#1b1b24] h-[100vh] flex items-center justify-center flex-col gap-10 ">
       <div className="flex flex-col gap-10 w-[80vw] md:w-max ">
         <div>
-          <IoArrowBack className="text-4xl lg:text-6xl text-white/90 cursor-pointer"></IoArrowBack>
+          <IoArrowBack
+            onClick={handleNavigate}
+            className="text-4xl lg:text-6xl text-white/90 cursor-pointer"
+          />
         </div>
         <div className="grid grid-cols-2 ">
           <div
@@ -30,7 +92,7 @@ const Profile = () => {
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
           >
-            <Avatar className="h-32 w-32 md:w-48 md:h-38 rounded-full overflow-hidden  ">
+            <Avatar className="h-32 w-32 md:w-48 md:h-48 rounded-full overflow-hidden  ">
               {image ? (
                 <AvatarImage
                   src={image}
@@ -43,29 +105,33 @@ const Profile = () => {
                     selectedColor
                   )} `}
                 >
-                  {firstName
-                    ? firstName.split("").shift()
-                    : userInfo.email.split("").shift()}
+                  {firstName ? firstName[0] : userInfo.email[0]}
                 </div>
               )}
             </Avatar>
             {hovered && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50 ring-fuchsia-50 rounded-full ">
                 {image ? (
-                  <FaTrash className="text-white text-3xl cursor-pointer" />
+                  <FaTrash
+                    className="text-white text-3xl cursor-pointer"
+                    onClick={handleImageRemove}
+                  />
                 ) : (
-                  <FaPlus className="text-white text-3xl cursor-pointer" />
+                  <FaPlus
+                    className="text-white text-3xl cursor-pointer"
+                    onClick={handleImageUpload}
+                  />
                 )}
               </div>
             )}
           </div>
           {/* input fields */}
-          <div className="flex min-w-32 md:min-w-64 flex-col gap-5  text-white items-center justify-center ">
+          <div className="flex min-w-32 md:min-w-64 flex-col gap-5 text-white items-center justify-center ">
             <div className="w-full">
               <Input
                 placeholder="Email"
                 type="email"
-                disables
+                disabled
                 value={userInfo.email}
                 className="rounded-lg p-6 bg-[#2c2e3b] border-none "
               />
@@ -74,25 +140,21 @@ const Profile = () => {
               <Input
                 placeholder="First Name"
                 type="text"
-                onChange={(e) => {
-                  setFirstName(e.target.value);
-                }}
+                onChange={(e) => setFirstName(e.target.value)}
                 value={firstName}
                 className="rounded-lg p-6 bg-[#2c2e3b] border-none  "
               />
             </div>
             <div className="w-full">
               <Input
-                placeholder="Last NAme"
+                placeholder="Last Name"
                 type="text"
-                onChange={(e) => {
-                  setLastName(e.target.value);
-                }}
+                onChange={(e) => setLastName(e.target.value)}
                 value={lastName}
                 className="rounded-lg p-6 bg-[#2c2e3b] border-none "
               />
             </div>
-            <div className="full flex gap-5 ">
+            <div className="flex gap-5 ">
               {colors.map((color, index) => (
                 <div
                   className={`h-8 w-8 rounded-full cursor-pointer transition-all duration-300 ${color} ${
