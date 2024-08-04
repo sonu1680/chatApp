@@ -1,5 +1,5 @@
 import { useAppStore } from "@/store";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { IoArrowBack } from "react-icons/io5";
 import { Avatar, AvatarImage } from "@/components/ui/avatar";
@@ -9,7 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import apiClient from "@/lib/apiClient";
-import { UPDATE_USER_PROFILE } from "@/utils/constant";
+import {
+  UPDATE_USER_PROFILE,
+  ADD_PROFILE_IMAGE,
+  HOST,
+  REMOVE_PROFILE_IMAGE,
+} from "@/utils/constant";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -20,13 +25,20 @@ const Profile = () => {
   const [hovered, setHovered] = useState(false);
   const [selectedColor, setSelectedColor] = useState(0);
 
-useEffect(() => {
-  if (userInfo.profileSetup) {
-    setFirstName(userInfo.firstName);
-    setLastName(userInfo.lastName);
-    setSelectedColor(userInfo.color);
-  }
-}, [userInfo]);
+  const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    if (userInfo.profileSetup) {
+      setFirstName(userInfo.firstName);
+      setLastName(userInfo.lastName);
+      setSelectedColor(userInfo.color);
+      if (userInfo.image) {
+        const imageUrl = `${HOST}/${userInfo.image}`;
+        setImage(imageUrl);
+        console.log("Image URL:", imageUrl);
+      }
+    }
+  }, [userInfo]);
 
   const updateValidation = () => {
     if (!firstName.length) {
@@ -40,26 +52,26 @@ useEffect(() => {
     return true;
   };
 
-const handleNavigate=async()=>{
-  if(userInfo.profileSetup){
-    navigate('/chat');
-  }
-  else toast.error('Please setup user profile first.');
-}
+  const handleNavigate = async () => {
+    if (userInfo.profileSetup) {
+      navigate("/chat");
+    } else {
+      toast.error("Please setup user profile first.");
+    }
+  };
 
   const saveChanges = async () => {
     if (updateValidation()) {
       try {
-     
         const res = await apiClient.post(
           UPDATE_USER_PROFILE,
-          { firstName, lastName,color:selectedColor },
+          { firstName, lastName, color: selectedColor },
           { withCredentials: true }
         );
-        if (res.status === 200 && res.data ) {
-          setUserInfo({ ...res.data} );
+        if (res.status === 200 && res.data) {
+          setUserInfo({ ...res.data });
           toast.success("Profile updated successfully");
-          navigate('/chat');
+          navigate("/chat");
         } else {
           toast.error("Failed to update profile");
         }
@@ -69,12 +81,45 @@ const handleNavigate=async()=>{
     }
   };
 
-  const handleImageUpload = () => {
-    // Handle image upload functionality here
+  const handleFileInputClick = async () => {
+    fileInputRef.current.click();
   };
 
-  const handleImageRemove = () => {
-    setImage(null);
+  const handleImageChange = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const formData = new FormData();
+      formData.append("profile-image", file);
+      try {
+        const res = await apiClient.post(ADD_PROFILE_IMAGE, formData, {
+          withCredentials: true,
+        });
+        if (res.status === 200 && res.data.image) {
+          const imageUrl = `${HOST}/${res.data.image}`;
+          setUserInfo({ ...userInfo, image: res.data.image });
+          toast.success("Image updated successfully.");
+          setImage(imageUrl);
+          console.log("New Image URL:", imageUrl);
+        }
+      } catch (error) {
+        toast.error("Error uploading image");
+      }
+    }
+  };
+
+  const handleDeleteImage = async () => {
+    try {
+      const res = await apiClient.delete(REMOVE_PROFILE_IMAGE, {
+        withCredentials: true,
+      });
+      if (res.status === 200) {
+        setUserInfo({ ...userInfo, image: null });
+        toast.success("Image removed");
+        setImage(null);
+      }
+    } catch (error) {
+      toast.error("Error removing image");
+    }
   };
 
   return (
@@ -110,20 +155,25 @@ const handleNavigate=async()=>{
               )}
             </Avatar>
             {hovered && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/50 ring-fuchsia-50 rounded-full ">
+              <div
+                className="absolute inset-0 flex items-center justify-center bg-black/50 ring-fuchsia-50 rounded-full "
+                onClick={image ? handleDeleteImage : handleFileInputClick}
+              >
                 {image ? (
-                  <FaTrash
-                    className="text-white text-3xl cursor-pointer"
-                    onClick={handleImageRemove}
-                  />
+                  <FaTrash className="text-white text-3xl cursor-pointer" />
                 ) : (
-                  <FaPlus
-                    className="text-white text-3xl cursor-pointer"
-                    onClick={handleImageUpload}
-                  />
+                  <FaPlus className="text-white text-3xl cursor-pointer" />
                 )}
               </div>
             )}
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden "
+              onChange={handleImageChange}
+              name="profile-image"
+              accept=".png,.jpg,.jpeg,.svg,.webp"
+            />
           </div>
           {/* input fields */}
           <div className="flex min-w-32 md:min-w-64 flex-col gap-5 text-white items-center justify-center ">

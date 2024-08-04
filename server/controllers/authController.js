@@ -1,7 +1,7 @@
 import userModel from "../models/userModel.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
-
+import {renameSync,unlinkSync} from "fs";
 const createToken = (email, userId) => {
   return jwt.sign(
     {
@@ -145,4 +145,64 @@ if(!firstName || !lastName ){
    }
 };
 
-export { signup, login, getUserInfo, updateProfile };
+const addProfileImage = async (req, res) => {
+  try {
+ 
+    if (!req.file) {
+      return res.status(403).json({
+        message: "no file found",
+        success: false,
+      });
+    }
+
+const date= Date.now();
+let fileName="uploads/profile/"+date+req.file.originalname;
+renameSync(req.file.path,fileName);
+const updatedUser=await userModel.findByIdAndUpdate(req.userId,{image:fileName},{new:true,runValidators:true})
+
+    if (!updatedUser){
+
+      return res.status(403).json({ message: "No user found", success: false });
+    }
+
+    return res.status(200).json({
+      image: updatedUser.image
+    });
+  } catch (error) {
+    return res
+      .status(401)
+      .json({ message: "Internal server error", success: false });
+  }
+};
+
+const removeProfilImage = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const user = await userModel.findById(userId);
+    if (!user){
+      return res.status(403).json({ message: "No user found", success: false });
+
+    }
+if(user.image){
+  unlinkSync(user.image);
+
+}
+user.image=null;
+await user.save();
+
+    return res.status(200).json({message:"profile image removed successfully."});
+  } catch (error) {
+    return res
+      .status(401)
+      .json({ message: "Internal server error", success: false });
+  }
+};
+
+export {
+  signup,
+  login,
+  getUserInfo,
+  updateProfile,
+  addProfileImage,
+  removeProfilImage,
+};
